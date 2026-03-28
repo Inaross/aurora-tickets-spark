@@ -1,0 +1,98 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36" version="29.6.6">
+  <diagram id="Ofay4W0xH-aEwMhLwQKV" name="Página-1">
+    <mxGraphModel dx="2066" dy="1103" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="users" parent="1" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fillColor=#e1d5e7;strokeColor=#9673a6;strokeWidth=2;" value="Tráfico de&#xa;Usuarios" vertex="1">
+          <mxGeometry height="60" width="30" x="435" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="rY-2y3x0PEtdXq3F6-Gp-2" edge="1" parent="1" source="ec2_web" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="cw_logs">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ec2_web" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FF9900;fontColor=#ffffff;strokeColor=#232F3E;strokeWidth=2;" value="&lt;b&gt;Amazon EC2&lt;/b&gt;&lt;br&gt;Nodo Web / Submit&lt;br&gt;(FastAPI / Boto3)" vertex="1">
+          <mxGeometry height="80" width="160" x="370" y="250" as="geometry" />
+        </mxCell>
+        <mxCell id="s3_raw" parent="1" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#3F8624;fontColor=#ffffff;strokeColor=#232F3E;strokeWidth=2;" value="&lt;b&gt;Amazon S3&lt;/b&gt;&lt;br&gt;Capa RAW&lt;br&gt;(events, campaigns, tx)" vertex="1">
+          <mxGeometry height="90" width="160" x="170" y="390" as="geometry" />
+        </mxCell>
+        <mxCell id="cw_logs" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#CC2266;fontColor=#ffffff;strokeColor=#232F3E;strokeWidth=2;" value="&lt;b&gt;AWS CloudWatch&lt;/b&gt;&lt;br&gt;Log Group&lt;br&gt;(clickstream.jsonl)" vertex="1">
+          <mxGeometry height="80" width="160" x="570" y="390" as="geometry" />
+        </mxCell>
+        <mxCell id="ec2_spark" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E25A1C;fontColor=#ffffff;strokeColor=#232F3E;strokeWidth=2;" value="&lt;b&gt;Amazon EC2 (Clúster Spark)&lt;/b&gt;&lt;br&gt;1 Master + 3 Workers&lt;br&gt;Job 1 (Curación) &amp; Job 2 (Analítica)" vertex="1">
+          <mxGeometry height="90" width="200" x="170" y="550" as="geometry" />
+        </mxCell>
+        <mxCell id="rY-2y3x0PEtdXq3F6-Gp-22" edge="1" parent="1" source="s3_curated" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="ec2_spark">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rY-2y3x0PEtdXq3F6-Gp-23" connectable="0" parent="rY-2y3x0PEtdXq3F6-Gp-22" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="Lee datos limpios (Job 2)" vertex="1">
+          <mxGeometry relative="1" x="0.0621" y="-1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="s3_curated" parent="1" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#3F8624;fontColor=#ffffff;strokeColor=#232F3E;strokeWidth=2;" value="&lt;b&gt;Amazon S3&lt;/b&gt;&lt;br&gt;Capa CURATED&lt;br&gt;(Parquet)" vertex="1">
+          <mxGeometry height="90" width="160" x="130" y="760" as="geometry" />
+        </mxCell>
+        <mxCell id="rds_mysql" parent="1" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#3355CC;fontColor=#ffffff;strokeColor=#232F3E;strokeWidth=2;" value="&lt;b&gt;Amazon RDS&lt;/b&gt;&lt;br&gt;Data Warehouse (MySQL)&lt;br&gt;(metrics_funnel, ranking...)" vertex="1">
+          <mxGeometry height="90" width="180" x="390" y="750" as="geometry" />
+        </mxCell>
+        <mxCell id="dashboard" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#CC2266;fontColor=#ffffff;strokeColor=#232F3E;strokeWidth=2;" value="&lt;b&gt;CloudWatch Dashboard&lt;/b&gt;&lt;br&gt;Panel Interactivo&lt;br&gt;(4 Gráficas)" vertex="1">
+          <mxGeometry height="80" width="160" x="570" y="555" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_users_web" edge="1" parent="1" source="users" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;" target="ec2_web" value="Tráfico / Compras">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_web_s3" edge="1" parent="1" source="ec2_web" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;" target="s3_raw" value="Genera CSVs">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <Point x="180" y="180" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_web_cw" edge="1" parent="1" source="ec2_web" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="cw_logs" value="Inyecta logs JSONL">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <Point x="580" y="180" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_s3_spark" edge="1" parent="1" source="s3_raw" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="ec2_spark" value="Lee datos RAW">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_spark_curated" edge="1" parent="1" source="ec2_spark" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;" target="s3_curated" value="Guarda Parquet (Job 1)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_curated_spark" edge="1" parent="1" source="s3_curated" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;entryX=0;entryY=0.75;entryDx=0;entryDy=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;" target="ec2_spark" value="Lee datos limpios (Job 2)">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <Point x="50" y="645" />
+              <Point x="50" y="508" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_spark_rds" edge="1" parent="1" source="ec2_spark" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;exitX=1;exitY=0.75;exitDx=0;exitDy=0;" target="rds_mysql" value="Guarda Métricas vía JDBC">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <Point x="340" y="508" />
+              <Point x="340" y="645" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_cw_dash" edge="1" parent="1" source="cw_logs" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;" target="dashboard" value="Logs Insights">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rY-2y3x0PEtdXq3F6-Gp-3" edge="1" parent="1" source="ec2_web" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;" target="s3_raw">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rY-2y3x0PEtdXq3F6-Gp-20" edge="1" parent="1" source="ec2_spark" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;" target="rds_mysql">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rY-2y3x0PEtdXq3F6-Gp-21" connectable="0" parent="rY-2y3x0PEtdXq3F6-Gp-20" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="Guarda métricas (Job 2)" vertex="1">
+          <mxGeometry relative="1" x="-0.0182" y="-2" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

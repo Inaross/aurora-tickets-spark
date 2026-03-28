@@ -1,0 +1,51 @@
+import boto3
+import time
+
+log_group = '/aurora/alejandro/clickstream'
+log_stream = 'flujo_definitivo'
+archivo_jsonl = 'aurora_clickstream.jsonl'
+
+client = boto3.client('logs', region_name='us-east-1')
+
+print(f"1. Verificando Log Group: {log_group}")
+try: client.create_log_group(logGroupName=log_group)
+except: pass
+
+print(f"2. Verificando Log Stream: {log_stream}")
+try: client.create_log_stream(logGroupName=log_group, logStreamName=log_stream)
+except: pass
+
+print("3. Leyendo archivo...")
+eventos = []
+with open(archivo_jsonl, 'r') as f:
+    for linea in f:
+        if linea.strip():
+            eventos.append(linea.strip())
+
+total = len(eventos)
+print(f"-> ¡He encontrado {total} eventos para subir!")
+
+# Forzamos a que la fecha sea AHORA MISMO para que CloudWatch los vea al instante
+tiempo_actual_ms = int(time.time() * 1000)
+lote_size = 2000
+
+print("4. Iniciando inyección...")
+for i in range(0, total, lote_size):
+    lote = eventos[i:i + lote_size]
+    lote_aws = []
+    
+    for msg in lote:
+        lote_aws.append({
+            'timestamp': tiempo_actual_ms,
+            'message': msg
+        })
+        tiempo_actual_ms += 1 # Sumamos 1 milisegundo para que mantengan el orden
+        
+    try:
+        client.put_log_events(logGroupName=log_group, logStreamName=log_stream, logEvents=lote_aws)
+        print(f"  -> Lote inyectado: {i} a {i+len(lote)} de {total}")
+        time.sleep(0.2)
+    except Exception as e:
+        print(f"Error en lote {i}: {e}")
+
+print("--- INYECCIÓN 100% COMPLETADA ---")

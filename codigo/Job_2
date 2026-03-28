@@ -1,0 +1,88 @@
+from pyspark.sql import SparkSession
+
+student_id = "alejandro"
+bucket = f"aurora-tickets-{student_id}-datalake-2026"
+
+s3_curated = f"s3a://{bucket}/aurora/{student_id}/curated/"
+s3_analytics = f"s3a://{bucket}/aurora/{student_id}/analytics/"
+
+# Credenciales y Endpoint de tu base de datos RDS MySQL
+rds_url = "jdbc:mysql://aurora-tickets-db.cpe0w0ekqxf9.us-east-1.rds.amazonaws.com:3306/auroradb?createDatabaseIfNotExist=true"
+rds_prop = {
+    "user": "admin", 
+    "password": "Aurora2026!", 
+    "driver": "com.mysql.cj.jdbc.Driver"
+}
+
+spark = SparkSession.builder \
+    .appName("Job 2: Analitica - Alejandro") \
+    .master("spark://172.31.88.233:7077") \
+    .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem") \
+    .config("spark.hadoop.fs.s3a.aws.credentials.provider", "com.amazonaws.auth.InstanceProfileCredentialsProvider") \
+    .getOrCreate()
+    
+spark.sparkContext.setLogLevel("WARN")
+
+print("--- 1. Leyendo datos limpios de CURATED ---")
+df_click = spark.read.parquet(s3_curated + "clickstream")
+df_tx = spark.read.parquet(s3_curated + "transactions")
+
+# Las convertimos a tablas SQL temporales para cruzarlas más fácilmente
+df_click.createOrReplaceTempView("clickstream")
+df_tx.createOrReplaceTempView("transactions")
+
+print("--- 2. Calculando Producto A: Funnel Diario ---")
+df_funnel = spark.sql("""
+    SELECT 
+        dt,
+        COUNT(DISTINCT session_id) as sessions_total,
+        COUNT(DISTINCT CASE WHEN url LIKE '%list%' OR event_type LIKE '%list%' THEN session_id END) as sessions_event_list,
+        COUNT(DISTINCT CASE WHEN url LIKE '%detail%' OR event_type LIKE '%detail%' THEN session_id END) as sessions_event_detail,
+        COUNT(DISTINCT CASE WHEN url LIKE '%checkout%' OR event_type LIKE '%checkout%' THEN session_id END) as sessions_begin_checkout,
+        COUNT(DISTINCT CASE WHEN url LIKE '%purchase%' OR event_type LIKE '%purchase%' THEN session_id END) as sessions_purchase,
+        ROUND(COUNT(DISTINCT CASE WHEN url LIKE '%purchase%' OR event_type LIKE '%purchase%' THEN session_id END) / COUNT(DISTINCT session_id), 4) as conversion_rate
+    FROM clickstream
+    GROUP BY dt
+""")
+
+print("--- 3. Calculando Producto B: Ranking Interés vs Ingresos ---")
+df_ranking = spark.sql("""
+    SELECT 
+        c.dt,
+        c.event_id,
+        COUNT(CASE WHEN c.url LIKE '%detail%' OR c.event_type LIKE '%detail%' THEN 1 END) as detail_views,
+        COUNT(t.transaction_id) as purchases,
+        SUM(COALESCE(t.amount, 0)) as revenue_total,
+        ROUND(COUNT(CASE WHEN c.url LIKE '%detail%' OR c.event_type LIKE '%detail%' THEN 1 END) / (COUNT(t.transaction_id) + 0.0001), 2) as interest_to_purchase_ratio
+    FROM clickstream c
+    LEFT JOIN transactions t ON c.session_id = t.session_id AND c.event_id = t.event_id
+    WHERE c.event_id IS NOT NULL
+    GROUP BY c.dt, c.event_id
+""")
+
+print("--- 4. Calculando Producto C: Detección de Anomalías ---")
+# Regla estadística: Sesiones hiperactivas (>100 peticiones) que se saltaron el filtro de bots
+df_anomalias = spark.sql("""
+    SELECT 
+        dt,
+        session_id as dimension,
+        COUNT(*) as metric_requests,
+        TRUE as is_anomaly,
+        'Exceso de peticiones por sesión (posible bot no detectado)' as reason
+    FROM clickstream
+    GROUP BY dt, session_id
+    HAVING COUNT(*) > 100
+""")
+
+print("--- 5. Guardando Datasets en S3 (ANALYTICS) ---")
+df_funnel.write.mode("overwrite").parquet(s3_analytics + "funnel_daily")
+df_ranking.write.mode("overwrite").parquet(s3_analytics + "event_rank")
+df_anomalias.write.mode("overwrite").parquet(s3_analytics + "anomalies")
+
+print("--- 6. Guardando Tablas Finales en RDS MySQL ---")
+df_funnel.write.jdbc(url=rds_url, table="metrics_funnel_daily", mode="overwrite", properties=rds_prop)
+df_ranking.write.jdbc(url=rds_url, table="metrics_event_rank", mode="overwrite", properties=rds_prop)
+df_anomalias.write.jdbc(url=rds_url, table="metrics_anomalies", mode="overwrite", properties=rds_prop)
+
+spark.stop()
+print("--- JOB 2 COMPLETADO CON ÉXITO ---")

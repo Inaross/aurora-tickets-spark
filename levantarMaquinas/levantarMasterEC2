@@ -1,0 +1,31 @@
+#!/bin/bash
+# Redirigir toda la salida a un log para depuración (buena práctica profesional)
+exec > >(tee /var/log/aurora-master-setup.log|logger -t user-data -s 2>/dev/console) 2>&1
+
+echo "Iniciando aprovisionamiento del Spark Master..."
+
+# 1. Actualizar repositorios e instalar dependencias (Java 11 es ideal para Spark 3)
+apt-get update -y
+apt-get install -y openjdk-11-jdk wget tar
+
+# 2. Descargar e instalar Apache Spark 3.5.1
+cd /opt
+# Usamos el archivo de Apache para asegurar disponibilidad
+wget https://archive.apache.org/dist/spark/spark-3.5.1/spark-3.5.1-bin-hadoop3.tgz
+tar -xvzf spark-3.5.1-bin-hadoop3.tgz
+mv spark-3.5.1-bin-hadoop3 spark
+rm spark-3.5.1-bin-hadoop3.tgz
+
+# 3. Configurar variables de entorno globales
+echo 'export SPARK_HOME=/opt/spark' >> /etc/profile.d/spark.sh
+echo 'export PATH=$PATH:$SPARK_HOME/bin:$SPARK_HOME/sbin' >> /etc/profile.d/spark.sh
+source /etc/profile.d/spark.sh
+
+# 4. Configurar el host del Master usando la IP privada interna de AWS
+PRIVATE_IP=$(hostname -I | awk '{print $1}')
+echo "SPARK_MASTER_HOST=$PRIVATE_IP" >> /opt/spark/conf/spark-env.sh
+
+# 5. Arrancar el servicio Master
+/opt/spark/sbin/start-master.sh
+
+echo "Spark Master aprovisionado y arrancado con éxito."

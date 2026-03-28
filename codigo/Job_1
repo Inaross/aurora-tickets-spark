@@ -1,0 +1,43 @@
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import col, to_date
+
+student_id = "alejandro"
+bucket = f"aurora-tickets-{student_id}-datalake-2026"
+
+s3_raw = f"s3a://{bucket}/aurora/{student_id}/raw/"
+s3_curated = f"s3a://{bucket}/aurora/{student_id}/curated/"
+
+spark = SparkSession.builder \
+    .appName("Job 1: Curacion - Alejandro") \
+    .master("spark://172.31.88.233:7077") \
+    .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem") \
+    .config("spark.hadoop.fs.s3a.aws.credentials.provider", "com.amazonaws.auth.InstanceProfileCredentialsProvider") \
+    .getOrCreate()
+    
+spark.sparkContext.setLogLevel("WARN")
+
+print("--- 1. Leyendo datos RAW directamente desde S3 ---")
+df_events = spark.read.csv(s3_raw + "events.csv", header=True, inferSchema=True)
+df_campaigns = spark.read.csv(s3_raw + "campaigns.csv", header=True, inferSchema=True)
+df_transactions = spark.read.csv(s3_raw + "transactions.csv", header=True, inferSchema=True)
+df_clickstream = spark.read.json(s3_raw + "aurora_clickstream.jsonl")
+
+print("--- 2. Limpieza de Datos (Data Preparation) ---")
+df_transactions_clean = df_transactions.dropna(subset=["amount", "transaction_id"]) \
+    .filter((col("amount") > 0) & (col("amount") < 10000))
+
+# CORRECCIÓN: Usamos server_timestamp y lo convertimos a fecha
+df_clickstream_clean = df_clickstream.filter(col("is_bot_suspicion") == False) \
+    .withColumn("dt", to_date(col("server_timestamp").cast("timestamp")))
+
+print("--- 3. Escribiendo en Parquet directamente a S3 (CURATED) ---")
+df_events.write.mode("overwrite").parquet(s3_curated + "events")
+df_campaigns.write.mode("overwrite").parquet(s3_curated + "campaigns")
+df_transactions_clean.write.mode("overwrite").parquet(s3_curated + "transactions")
+
+df_clickstream_clean.write.mode("overwrite") \
+    .partitionBy("dt", "event_type") \
+    .parquet(s3_curated + "clickstream")
+
+spark.stop()
+print("--- JOB 1 COMPLETADO CON ÉXITO ---")

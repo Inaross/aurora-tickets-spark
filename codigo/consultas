@@ -1,0 +1,22 @@
+#Consulta 1: Eventos por tipo
+filter ispresent(session_id) and ispresent(event_type)
+| stats count_distinct(session_id) as sesiones_unicas by event_type
+| sort sesiones_unicas desc
+
+#Consulta 2: Eventos más populares
+filter ispresent(event_id)
+| stats count(*) as total_clics, count_distinct(session_id) as usuarios_interesados by event_id
+| sort total_clics desc
+| limit 15
+
+#Consulta 3: URLs más visitadas
+filter ispresent(url)
+| stats count(*) as total_peticiones by url
+| sort total_peticiones desc
+| limit 15
+
+#Consulta 4: Alertas de seguridad
+filter event_type = "login_failed" or event_type = "error"
+| stats count(*) as alertas by user_id
+| sort alertas desc
+| limit 10

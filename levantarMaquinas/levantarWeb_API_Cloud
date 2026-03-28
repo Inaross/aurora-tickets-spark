@@ -1,0 +1,85 @@
+#!/bin/bash
+exec > >(tee /var/log/aurora-web-setup.log|logger -t user-data -s 2>/dev/console) 2>&1
+
+echo "Iniciando aprovisionamiento del Nodo Web (EC2-6) - MODO VENV SEGURO..."
+
+# 1. Instalar dependencias base y paquete para entornos virtuales
+apt-get update -y
+apt-get install -y python3-pip python3-venv wget
+wget https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
+dpkg -i -E ./amazon-cloudwatch-agent.deb
+
+mkdir -p /opt/aurora/app
+mkdir -p /var/log/aurora
+touch /var/log/aurora/aurora_clickstream.jsonl
+chmod 777 /var/log/aurora/aurora_clickstream.jsonl
+
+# 2. Crear entorno virtual aislado e instalar las librerías SIN tocar el sistema
+python3 -m venv /opt/aurora/venv
+/opt/aurora/venv/bin/pip install fastapi uvicorn pydantic
+
+# 3. CREAR NUESTRO PROPIO CÓDIGO API
+cat << 'EOF' > /opt/aurora/app/main.py
+from fastapi import FastAPI, Request
+import json
+import time
+
+app = FastAPI()
+LOG_FILE = "/var/log/aurora/aurora_clickstream.jsonl"
+
+@app.get("/")
+def read_root():
+    return {"status": "Aurora Tickets API Running - Despliegue Exitoso", "alumno": "Alejandro"}
+
+@app.post("/track")
+async def track_event(request: Request):
+    payload = await request.json()
+    payload["server_timestamp"] = int(time.time())
+    with open(LOG_FILE, "a") as f:
+        f.write(json.dumps(payload) + "\n")
+    return {"status": "evento registrado"}
+EOF
+
+# 4. Configurar el Agente de CloudWatch con tu ID
+cat << 'EOF' > /opt/aws/amazon-cloudwatch-agent/bin/config.json
+{
+  "logs": {
+    "logs_collected": {
+      "files": {
+        "collect_list": [
+          {
+            "file_path": "/var/log/aurora/aurora_clickstream.jsonl",
+            "log_group_name": "/aurora/Alejandro/clickstream",
+            "log_stream_name": "{instance_id}"
+          }
+        ]
+      }
+    }
+  }
+}
+EOF
+
+# Arrancar el Agente de CloudWatch
+/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/bin/config.json -s
+
+# 5. Configurar la API Web apuntando al Python del entorno virtual
+cat << 'EOF' > /etc/systemd/system/aurora-api.service
+[Unit]
+Description=Aurora Tickets Backend Seguro
+After=network.target
+
+[Service]
+User=root
+WorkingDirectory=/opt/aurora/app
+ExecStart=/opt/aurora/venv/bin/python -m uvicorn main:app --host 0.0.0.0 --port 80
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable aurora-api
+systemctl start aurora-api
+
+echo "Nodo Web aprovisionado y ejecutándose con éxito."

@@ -1,0 +1,60 @@
+import os
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import col, count
+
+# 1. Conexión con el clúster
+spark = SparkSession.builder \
+    .appName("Aurora Analytics - Alejandro") \
+    .master("spark://172.31.88.233:7077") \
+    .getOrCreate()
+
+spark.sparkContext.setLogLevel("WARN")
+print("--- Iniciando Análisis de Aurora Tickets ---")
+
+# 2. Truco Maestro: Leer en el Submit y enviar a la RAM de los Workers
+with open("aurora_clickstream.jsonl", "r") as f:
+    lineas_json = f.readlines()
+
+# Paralelizamos (repartimos) las líneas y las convertimos en DataFrame
+rdd = spark.sparkContext.parallelize(lineas_json)
+df = spark.read.json(rdd)
+
+# 3. Cálculos
+total_eventos = df.count()
+print(f"Total de eventos crudos ingeridos: {total_eventos}")
+
+df_limpio = df.filter(col("is_bot_suspicion") == False)
+eventos_reales = df_limpio.count()
+print(f"Eventos de usuarios reales: {eventos_reales}")
+print(f"Bots bloqueados: {total_eventos - eventos_reales}")
+
+# 4. Top 5 Páginas
+print("\n--- Top 5 Páginas Más Visitadas ---")
+top_paginas = df_limpio.groupBy("url") \
+    .agg(count("*").alias("visitas")) \
+    .orderBy(col("visitas").desc()) \
+    .limit(5)
+
+top_paginas.show()
+
+spark.stop()
+print("--- Análisis Completado ---")
+
+# 4. NUEVO: Almacenamiento en Data Lake (S3) 
+print("\n--- Guardando Datos Limpios en Amazon S3 ---")
+# Recogemos los datos procesados del clúster
+datos_limpios_json = df_limpio.toJSON().collect()
+
+# Los guardamos en un archivo temporal
+archivo_salida = "aurora_limpio.jsonl"
+with open(archivo_salida, "w") as f:
+    for linea in datos_limpios_json:
+        f.write(linea + "\n")
+
+# Usamos la consola de AWS para subirlo a tu bucket
+nombre_bucket = "aurora-tickets-alejandro-datalake-2026"
+print(f"Subiendo archivo a s3://{nombre_bucket} ...")
+os.system(f"aws s3 cp {archivo_salida} s3://{nombre_bucket}/")
+
+spark.stop()
+print("--- Proceso 100% Completado ---")
